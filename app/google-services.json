@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "771329113319",
+    "project_id": "whoofmydog",
+    "storage_bucket": "whoofmydog.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:771329113319:android:b490a7513669e12e6c7642",
+        "android_client_info": {
+          "package_name": "com.example.whichdogjetpack"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBfnxcqJ5CsyPLVfn8NqQrSSbJv_IP7lFo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

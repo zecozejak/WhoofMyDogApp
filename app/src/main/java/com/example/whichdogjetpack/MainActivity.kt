@@ -3,30 +3,36 @@ package com.example.whichdogjetpack
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.runtime.Composable
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.ui.Modifier
 import androidx.navigation.compose.rememberNavController
 import com.example.whichdogjetpack.ui.theme.WhichDogJetpackTheme
-
+import com.google.firebase.appcheck.FirebaseAppCheck
+import com.google.firebase.appcheck.playintegrity.PlayIntegrityAppCheckProviderFactory
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Inicjalizacja Firebase App Check
+        val firebaseAppCheck = FirebaseAppCheck.getInstance()
+        firebaseAppCheck.installAppCheckProviderFactory(
+            PlayIntegrityAppCheckProviderFactory.getInstance()
+        )
+
         setContent {
             WhichDogJetpackTheme {
-                MyApp()
+                // A surface container using the 'background' color from the theme
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
+                    val navController = rememberNavController()
+                    NavGraph(navController = navController)
+                }
             }
         }
-    }
-}
-
-@Composable
-fun MyApp() {
-    val navController = rememberNavController()
-    NavHost(navController, startDestination = "home") {
-        composable("home") { HomeScreen(navController) }
-        composable("encyclopedia") { DogEncyclopediaScreen(navController) }
-        composable("recognize") { RecognizeDogScreen(navController) }
     }
 }

@@ -3,7 +3,10 @@ package com.example.whichdogjetpack
 import android.content.Context
 import android.graphics.Bitmap
 import android.net.Uri
+import android.os.Build
 import android.os.Environment
+import android.os.VibrationEffect
+import android.os.Vibrator
 import android.provider.MediaStore
 import android.util.Log
 import android.widget.Toast
@@ -13,8 +16,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.Text
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -26,19 +28,24 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
-import androidx.navigation.NavHostController
+import androidx.navigation.NavController
+import coil.compose.rememberImagePainter
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.storage.FirebaseStorage
+import kotlinx.coroutines.launch
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import okhttp3.RequestBody
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
 
 @Composable
-fun RecognizeDogScreen(navController: NavHostController) {
+fun RecognizeDogScreen(navController: NavController) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -83,48 +90,59 @@ fun RecognizeDogScreen(navController: NavHostController) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Top
     ) {
-        Spacer(modifier = Modifier.height(16.dp))
+        // Dodajmy więcej debugowania, aby upewnić się, że wszystkie przyciski są renderowane poprawnie
+        Log.d("RecognizeDogScreen", "Rendering UI")
 
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceEvenly
-        ) {
-            Button(onClick = {
-                if (context.checkSelfPermission(android.Manifest.permission.CAMERA) == android.content.pm.PackageManager.PERMISSION_GRANTED) {
-                    photoFile = createImageFile(context)
-                    val uri = FileProvider.getUriForFile(context, "${context.packageName}.provider", photoFile!!)
-                    imageUri = uri
-                    takePictureLauncher.launch(uri)
-                } else {
-                    requestPermissionLauncher.launch(android.Manifest.permission.CAMERA)
+        Button(onClick = {
+            Log.d("RecognizeDogScreen", "Zrób zdjęcie clicked")
+            if (context.checkSelfPermission(android.Manifest.permission.CAMERA) == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                photoFile = createImageFile(context)
+                val uri = FileProvider.getUriForFile(context, "${context.packageName}.provider", photoFile!!)
+                imageUri = uri
+                takePictureLauncher.launch(uri)
+            } else {
+                requestPermissionLauncher.launch(android.Manifest.permission.CAMERA)
+            }
+        }) {
+            Text("Zrób zdjęcie")
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Button(onClick = {
+            Log.d("RecognizeDogScreen", "Wybierz zdjęcie clicked")
+            pickImageLauncher.launch("image/*")
+        }) {
+            Text("Wybierz zdjęcie")
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Button(onClick = {
+            Log.d("RecognizeDogScreen", "Wyślij zdjęcie clicked")
+            imageUri?.let { uri ->
+                uploadImage(uri, context) { response, pred ->
+                    result = response
+                    prediction = pred
+
+                    // Wibracja telefonu
+                    vibratePhone(context)
                 }
-            }) {
-                Text("Zrób zdjęcie")
             }
+        }) {
+            Text("Wyślij zdjęcie")
+        }
 
-            Button(onClick = { pickImageLauncher.launch("image/*") }) {
-                Text("Wybierz zdjęcie")
-            }
+        Spacer(modifier = Modifier.height(8.dp))
 
-            Button(onClick = {
-                imageUri?.let { uri ->
-                    uploadImage(uri, context) { response, pred ->
-                        result = response
-                        prediction = pred
-                    }
-                }
-            }) {
-                Text("Wyślij zdjęcie")
-            }
-
-            Button(onClick = {
-                imageUri = null
-                bitmap = null
-                result = null
-                prediction = null
-            }) {
-                Text("Powtórz zdjęcie")
-            }
+        Button(onClick = {
+            Log.d("RecognizeDogScreen", "Powtórz zdjęcie clicked")
+            imageUri = null
+            bitmap = null
+            result = null
+            prediction = null
+        }) {
+            Text("Powtórz zdjęcie")
         }
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -169,6 +187,28 @@ fun RecognizeDogScreen(navController: NavHostController) {
                     }
                 }
             }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Button(onClick = {
+                Log.d("RecognizeDogScreen", "Zapisz do swojej bazy psiaków clicked")
+                prediction?.let { pred ->
+                    bitmap?.let { bmp ->
+                        saveDogToDatabase(context, pred.predicted_breed, bmp)
+                    }
+                }
+            }) {
+                Text("Zapisz do swojej bazy psiaków")
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Button(onClick = {
+            Log.d("RecognizeDogScreen", "Powrót clicked")
+            navController.navigate("home")
+        }) {
+            Text("Powrót")
         }
     }
 }
@@ -215,4 +255,51 @@ fun getFileFromUri(uri: Uri, context: Context): File {
     }
     return tempFile
 }
+
+fun vibratePhone(context: Context) {
+    val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        vibrator.vibrate(VibrationEffect.createOneShot(500, VibrationEffect.DEFAULT_AMPLITUDE))
+    } else {
+        vibrator.vibrate(500)
+    }
+}
+
+fun saveDogToDatabase(context: Context, breed: String, bitmap: Bitmap) {
+    val storage = FirebaseStorage.getInstance()
+    val storageRef = storage.reference
+    val dogsRef = storageRef.child("dogs/${UUID.randomUUID()}.jpg")
+
+    val baos = ByteArrayOutputStream()
+    bitmap.compress(Bitmap.CompressFormat.JPEG, 100, baos)
+    val data = baos.toByteArray()
+
+    val uploadTask = dogsRef.putBytes(data)
+    uploadTask.addOnFailureListener { exception ->
+        Log.e("FirebaseStorage", "Błąd podczas przesyłania zdjęcia", exception)
+        Toast.makeText(context, "Błąd podczas przesyłania zdjęcia", Toast.LENGTH_SHORT).show()
+    }.addOnSuccessListener { taskSnapshot ->
+        dogsRef.downloadUrl.addOnSuccessListener { uri ->
+            val dog = hashMapOf(
+                "breed" to breed,
+                "imageUrl" to uri.toString()
+            )
+
+            val db = FirebaseFirestore.getInstance()
+            db.collection("dogs")
+                .add(dog)
+                .addOnSuccessListener {
+                    Toast.makeText(context, "Pies zapisany do bazy", Toast.LENGTH_SHORT).show()
+                }
+                .addOnFailureListener { e ->
+                    Log.e("FirebaseFirestore", "Błąd podczas zapisywania do bazy", e)
+                    Toast.makeText(context, "Błąd podczas zapisywania do bazy", Toast.LENGTH_SHORT).show()
+                }
+        }.addOnFailureListener { e ->
+            Log.e("FirebaseStorage", "Błąd podczas pobierania URL zdjęcia", e)
+            Toast.makeText(context, "Błąd podczas pobierania URL zdjęcia", Toast.LENGTH_SHORT).show()
+        }
+    }
+}
+
 
